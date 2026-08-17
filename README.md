@@ -45,14 +45,13 @@ ipl-end-to-end-data-pipeline/
 │       └── cleaned_deliveries.csv
 │
 ├── notebooks/
-│   └── ipl_data_cleaning.ipynb
+│   └── 01_ipl_data_cleaning.ipynb
 │
 ├── sql/
-│   ├── schema_setup.sql
-│   └── analytical_queries.sql
+│   ├── ipl_analytics_sql.sql
 │
 ├── power_bi/
-│   ├── IPL_Analytics.pbix
+│   ├── ipl_analytics.pbix
 │   ├── DAX_Measures.md
 │   └── dashboard_preview.png
 │
@@ -92,17 +91,36 @@ ipl-end-to-end-data-pipeline/
 Example query used to validate toss-decision impact before building the dashboard:
 
 ```sql
--- Total matches by toss decision, with win percentage
-SELECT
+-- Top 10 Run-Scorers in IPL History
+SELECT 
+    batter, 
+    SUM(batsman_runs) AS total_runs,
+    COUNT(DISTINCT match_id) AS matches_played
+FROM deliveries
+GROUP BY batter
+ORDER BY total_runs DESC
+LIMIT 10;
+
+-- Match Win Percentage After Winning Toss
+SELECT 
     toss_decision,
     COUNT(*) AS total_matches,
-    ROUND(
-        SUM(CASE WHEN toss_winner = winner THEN 1 ELSE 0 END) * 100.0 / COUNT(*),
-        2
-    ) AS win_percentage
+    SUM(CASE WHEN toss_winner = winner THEN 1 ELSE 0 END) AS toss_and_win_count,
+    ROUND((SUM(CASE WHEN toss_winner = winner THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) AS win_percentage
 FROM matches
 WHERE winner != 'No Result'
 GROUP BY toss_decision;
+
+-- Top Wicket Takers
+SELECT 
+    bowler,
+    COUNT(*) AS total_wickets
+FROM deliveries
+WHERE is_wicket = 1 
+  AND dismissal_kind NOT IN ('run out', 'retired hurt', 'obstructing the field')
+GROUP BY bowler
+ORDER BY total_wickets DESC
+LIMIT 10;
 ```
 
 ### 3. Power BI DAX Modeling (`power_bi/DAX_Measures.md`)
@@ -110,18 +128,31 @@ GROUP BY toss_decision;
 Core measures used to drive the dashboard's KPI cards and visuals:
 
 ```dax
-Total Match Runs = SUM(deliveries[batsman_runs]) + SUM(deliveries[extra_runs])
+Batsman Runs = SUM('ipl_analytics deliveries'[batsman_runs])
 
-Batsman Runs = SUM(deliveries[batsman_runs])
+Strike Rate = 
+VAR LegalBalls = 
+    CALCULATE(
+        COUNT('ipl_analytics deliveries'[ball]),
+        'ipl_analytics deliveries'[extras_type] <> "wides" || ISBLANK('ipl_analytics deliveries'[extras_type])
+    )
+VAR RunsScored = SUM('ipl_analytics deliveries'[batsman_runs])
+RETURN
+DIVIDE(RunsScored, LegalBalls, 0) * 100
 
-Total Wickets =
+Total Match Runs = SUM('ipl_analytics deliveries'[batsman_runs]) + SUM('ipl_analytics deliveries'[extra_runs])
+
+Total Matches = COUNTROWS('ipl_analytics matches')
+
+Total Runs = SUM('ipl_analytics deliveries'[batsman_runs]) + SUM('ipl_analytics deliveries'[extra_runs])
+
+Total Wickets = 
 CALCULATE(
-    COUNTROWS(deliveries),
-    NOT(ISBLANK(deliveries[player_dismissed])),
-    NOT(deliveries[player_dismissed] IN {"", "0", "NA", "nan", "None"})
+    COUNTROWS('ipl_analytics deliveries'),
+    NOT(ISBLANK('ipl_analytics deliveries'[dismissal_kind])),
+    NOT('ipl_analytics deliveries'[dismissal_kind] IN {"", "0", "NA", "nan", "None"})
 )
 
-Total Matches = COUNTROWS(matches)
 ```
 
 ---
