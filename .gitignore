@@ -1,0 +1,35 @@
+# --- Data and Large Files ---
+*.csv
+*.xlsx
+*.json
+*.parquet
+*.pickle
+*.pkl
+# Exception: You can allow small reference metadata files if needed
+# !metadata.csv
+
+# --- Python Virtual Environments ---
+venv/
+env/
+.venv/
+ENV/
+bin/
+lib/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+
+# --- Jupyter Notebook Checkpoints ---
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# --- Credentials and Secrets ---
+.env
+.secrets
+credentials.json
+*.pem
+
+# --- OS and System Junk ---
+.DS_Store
+Thumbs.db
